@@ -21,6 +21,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/Peripli/service-manager/pkg/query"
+
 	"github.com/Peripli/service-manager/pkg/filters/labels"
 
 	"github.com/Peripli/service-manager/pkg/util"
@@ -106,7 +108,8 @@ func New(ctx context.Context, options *Options) (*web.API, error) {
 			},
 			&osb.Controller{
 				BrokerFetcher: func(ctx context.Context, brokerID string) (*types.ServiceBroker, error) {
-					br, err := options.Repository.Get(ctx, types.ServiceBrokerType, brokerID)
+					byID := query.ByField(query.EqualsOperator, "id", brokerID)
+					br, err := options.Repository.Get(ctx, types.ServiceBrokerType, byID)
 					if err != nil {
 						return nil, util.HandleStorageError(err, "broker")
 					}
@@ -123,6 +126,7 @@ func New(ctx context.Context, options *Options) (*web.API, error) {
 			labels.NewForbiddenLabelOperationsFilter(options.APISettings.ProctedLabels),
 			&filters.SelectionCriteria{},
 			&filters.PlatformAwareVisibilityFilter{},
+			&filters.OIDCLabelCriteriaFilter{},
 			&filters.PatchOnlyLabelsFilter{},
 		},
 		Registry: health.NewDefaultRegistry(),
