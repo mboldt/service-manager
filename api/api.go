@@ -23,8 +23,6 @@ import (
 
 	"github.com/Peripli/service-manager/pkg/query"
 
-	"github.com/Peripli/service-manager/pkg/filters/labels"
-
 	"github.com/Peripli/service-manager/pkg/util"
 
 	"github.com/Peripli/service-manager/pkg/types"
@@ -45,12 +43,13 @@ const osbVersion = "2.13"
 
 // Settings type to be loaded from the environment
 type Settings struct {
-	TokenIssuerURL    string   `mapstructure:"token_issuer_url" description:"url of the token issuer which to use for validating tokens"`
-	ClientID          string   `mapstructure:"client_id" description:"id of the client from which the token must be issued"`
-	SkipSSLValidation bool     `mapstructure:"skip_ssl_validation" description:"whether to skip ssl verification when making calls to external services"`
-	TokenBasicAuth    bool     `mapstructure:"token_basic_auth" description:"specifies if client credentials to the authorization server should be sent in the header as basic auth (true) or in the body (false)"`
-	ProctedLabels     []string `mapstructure:"protected_labels" description:"defines labels which cannot be modified/added by REST API requests"`
-	OSBVersion        string   `mapstructure:"-"`
+	TokenIssuerURL    string                          `mapstructure:"token_issuer_url" description:"url of the token issuer which to use for validating tokens"`
+	ClientID          string                          `mapstructure:"client_id" description:"id of the client from which the token must be issued"`
+	SkipSSLValidation bool                            `mapstructure:"skip_ssl_validation" description:"whether to skip ssl verification when making calls to external services"`
+	TokenBasicAuth    bool                            `mapstructure:"token_basic_auth" description:"specifies if client credentials to the authorization server should be sent in the header as basic auth (true) or in the body (false)"`
+	ProctedLabels     []string                        `mapstructure:"protected_labels" description:"defines labels which cannot be modified/added by REST API requests"`
+	TenantCriteria    *filters.TenantCriteriaSettings `mapstructure:"tenant_criteria" description:"defines parameters that allow filtering resources returned/accessed on PATCH, DELETE and GET"`
+	OSBVersion        string                          `mapstructure:"-"`
 }
 
 // DefaultSettings returns default values for API settings
@@ -60,8 +59,9 @@ func DefaultSettings() *Settings {
 		ClientID:          "",
 		SkipSSLValidation: false,
 		TokenBasicAuth:    true, // RFC 6749 section 2.3.1
-		OSBVersion:        osbVersion,
 		ProctedLabels:     nil,
+		TenantCriteria:    &filters.TenantCriteriaSettings{},
+		OSBVersion:        osbVersion,
 	}
 }
 
@@ -123,10 +123,10 @@ func New(ctx context.Context, options *Options) (*web.API, error) {
 			filters.NewBasicAuthnFilter(options.Repository),
 			bearerAuthnFilter,
 			secfilters.NewRequiredAuthnFilter(),
-			labels.NewForbiddenLabelOperationsFilter(options.APISettings.ProctedLabels),
+			filters.NewForbiddenLabelOperationsFilter(options.APISettings.ProctedLabels),
 			&filters.SelectionCriteria{},
 			&filters.PlatformAwareVisibilityFilter{},
-			&filters.OIDCLabelCriteriaFilter{},
+			filters.NewOIDCTenantCriteriaFilter(options.APISettings.TenantCriteria),
 			&filters.PatchOnlyLabelsFilter{},
 		},
 		Registry: health.NewDefaultRegistry(),

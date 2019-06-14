@@ -67,7 +67,29 @@ func (pgq *pgQuery) List(ctx context.Context, entity PostgresEntity) (*sqlx.Rows
 		return nil, pgq.err
 	}
 
-	baseQuery := constructBaseQueryForLabelable(entity.LabelEntity(), entity.TableName())
+	tableName := entity.TableName()
+	labelsEntity := entity.LabelEntity()
+
+	baseQuery := fmt.Sprintf("SELECT %s.*", tableName)
+	if entity.LabelEntity() != nil {
+		labelsTableName := labelsEntity.LabelsTableName()
+		baseQuery += `, `
+		for _, dbTag := range getDBTags(labelsEntity, isAutoIncrementable) {
+			baseQuery += fmt.Sprintf(`%[1]s.%[2]s "%[1]s.%[2]s", `, labelsTableName, dbTag.Tag)
+		}
+		baseQuery = baseQuery[:len(baseQuery)-2] //remove last comma
+	}
+
+	baseQuery += fmt.Sprintf(" FROM %s", tableName)
+
+	if labelsEntity != nil {
+		labelsTableName := labelsEntity.LabelsTableName()
+		referenceKeyColumn := labelsEntity.ReferenceColumn()
+		primaryKeyColumn := labelsEntity.LabelsPrimaryColumn()
+		baseQuery += fmt.Sprintf(` LEFT JOIN %[2]s ON %[1]s.%[3]s = %[2]s.%[4]s`,
+			tableName, labelsTableName, primaryKeyColumn, referenceKeyColumn)
+	}
+
 	pgq.sql.WriteString(baseQuery)
 
 	if err := pgq.finalizeSQL(entity); err != nil {
@@ -81,15 +103,26 @@ func (pgq *pgQuery) Delete(ctx context.Context, entity PostgresEntity) (*sqlx.Ro
 	if pgq.err != nil {
 		return nil, pgq.err
 	}
-	baseTableName := entity.TableName()
-	pgq.sql.WriteString(fmt.Sprintf("DELETE FROM %s", baseTableName))
-	for len(pgq.labelCriteria) > 0 {
-		return nil, &util.UnsupportedQueryError{Message: "conditional delete is only supported for field queries"}
+
+	tableName := entity.TableName()
+	labelsEntity := entity.LabelEntity()
+
+	baseQuery := fmt.Sprintf("DELETE FROM %s", tableName)
+
+	if len(pgq.labelCriteria) != 0 {
+		labelsTableName := labelsEntity.LabelsTableName()
+		referenceKeyColumn := labelsEntity.ReferenceColumn()
+		primaryKeyColumn := labelsEntity.LabelsPrimaryColumn()
+		baseQuery += fmt.Sprintf(` LEFT JOIN %[2]s ON %[1]s.%[3]s = %[2]s.%[4]s`,
+			tableName, labelsTableName, primaryKeyColumn, referenceKeyColumn)
 	}
+
+	pgq.sql.WriteString(baseQuery)
 
 	if err := pgq.finalizeSQL(entity); err != nil {
 		return nil, err
 	}
+
 	return pgq.db.QueryxContext(ctx, pgq.sql.String(), pgq.queryParams...)
 }
 

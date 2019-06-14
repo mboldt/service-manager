@@ -70,10 +70,12 @@ type TestContext struct {
 	wg            *sync.WaitGroup
 	wsConnections []*websocket.Conn
 
-	SM           *httpexpect.Expect
-	SMWithOAuth  *httpexpect.Expect
-	SMWithBasic  *httpexpect.Expect
-	SMRepository storage.Repository
+	SM          *httpexpect.Expect
+	SMWithOAuth *httpexpect.Expect
+	//TODO  should only return resources scoped to a tenant - token needs to contain  cidClaim: cidValue zidClaim: labelValue matching value of labelKey
+	SMWithOAuthForTenant *httpexpect.Expect
+	SMWithBasic          *httpexpect.Expect
+	SMRepository         storage.Repository
 
 	TestPlatform *types.Platform
 

@@ -241,6 +241,26 @@ func DescribeDeleteListFor(ctx *common.TestContext, t TestCase) bool {
 				expectedStatusCode: http.StatusBadRequest,
 			},
 		),
+		Entry("returns 200 when label query left operands are unknown",
+			deleteOpEntry{
+				resourcesToExpectBeforeOp: func() []common.Object {
+					return []common.Object{r[0], r[1], r[2], r[3]}
+				},
+				queryTemplate: "%[1]s in [%[2]v||%[2]v]",
+				queryArgs: func() common.Object {
+					return common.Object{
+						"labels": map[string]interface{}{
+							"unknown": []interface{}{
+								"unknown",
+							},
+						}}
+				},
+				resourcesNotToExpectAfterOp: func() []common.Object {
+					return []common.Object{r[0], r[1], r[2], r[3]}
+				},
+				expectedStatusCode: http.StatusOK,
+			},
+		),
 		Entry("returns 400 when single value operator is used with multiple right value arguments",
 			deleteOpEntry{
 				queryTemplate: "%[1]s != [%[2]v||%[2]v||%[2]v]",
@@ -391,6 +411,11 @@ func DescribeDeleteListFor(ctx *common.TestContext, t TestCase) bool {
 			afterEachHelper()
 		}
 
+		labels := entry.queryArgs()["labels"]
+		if labels != nil {
+
+		}
+
 	}
 
 	return Describe("DELETE LIST", func() {
@@ -408,7 +433,7 @@ func DescribeDeleteListFor(ctx *common.TestContext, t TestCase) bool {
 			})
 
 			Context("with bearer auth", func() {
-				Context("with no field query", func() {
+				Context("with no query", func() {
 					It("deletes all the resources", func() {
 						verifyDeleteListOpHelper(deleteOpEntry{
 							resourcesToExpectBeforeOp: func() []common.Object {
@@ -433,6 +458,34 @@ func DescribeDeleteListFor(ctx *common.TestContext, t TestCase) bool {
 							},
 							expectedStatusCode: http.StatusOK,
 						}, "fieldQuery=")
+					})
+				})
+
+				Context("with empty label query", func() {
+					It("returns 200", func() {
+						verifyDeleteListOpHelper(deleteOpEntry{
+							resourcesToExpectBeforeOp: func() []common.Object {
+								return []common.Object{r[0], r[1]}
+							},
+							resourcesNotToExpectAfterOp: func() []common.Object {
+								return []common.Object{r[0], r[1]}
+							},
+							expectedStatusCode: http.StatusOK,
+						}, "labelQuery=")
+					})
+				})
+
+				Context("with empty field and label query", func() {
+					It("returns 200", func() {
+						verifyDeleteListOpHelper(deleteOpEntry{
+							resourcesToExpectBeforeOp: func() []common.Object {
+								return []common.Object{r[0], r[1]}
+							},
+							resourcesNotToExpectAfterOp: func() []common.Object {
+								return []common.Object{r[0], r[1]}
+							},
+							expectedStatusCode: http.StatusOK,
+						}, "fieldQuery=&labelQuery=")
 					})
 				})
 			})
