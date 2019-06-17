@@ -60,6 +60,7 @@ type ServiceManagerBuilder struct {
 	ctx                 context.Context
 	wg                  *sync.WaitGroup
 	cfg                 *server.Settings
+	health              *health.Settings
 }
 
 // ServiceManager  struct
@@ -148,11 +149,7 @@ func New(ctx context.Context, cancel context.CancelFunc, cfg *config.Settings) (
 		ctx:                 ctx,
 		wg:                  waitGroup,
 		cfg:                 cfg.Server,
-	}
-
-	err = smb.installHealth(cfg.Health)
-	if err != nil {
-		return nil, fmt.Errorf("error adding health chech to sm: %s", err)
+		health:              cfg.Health,
 	}
 
 	// Register default interceptors that represent the core SM business logic
@@ -180,6 +177,11 @@ func New(ctx context.Context, cancel context.CancelFunc, cfg *config.Settings) (
 
 // Build builds the Service Manager
 func (smb *ServiceManagerBuilder) Build() *ServiceManager {
+	err := smb.installHealth()
+	if err != nil {
+		panic(err)
+	}
+
 	// setup server and add relevant global middleware
 	srv := server.New(smb.cfg, smb.API)
 	srv.Use(filters.NewRecoveryMiddleware())
@@ -193,7 +195,7 @@ func (smb *ServiceManagerBuilder) Build() *ServiceManager {
 	}
 }
 
-func (smb *ServiceManagerBuilder) installHealth(cfg *health.Settings) error {
+func (smb *ServiceManagerBuilder) installHealth() error {
 	if len(smb.HealthIndicators) == 0 {
 		return nil
 	}
@@ -204,14 +206,14 @@ func (smb *ServiceManagerBuilder) installHealth(cfg *health.Settings) error {
 		err := healthz.AddCheck(&h.Config{
 			Name:     indicator.Name(),
 			Checker:  indicator,
-			Interval: time.Duration(cfg.Interval) * time.Second,
+			Interval: time.Duration(smb.health.Interval) * time.Second,
 		})
 
 		if err != nil {
 			return err
 		}
 	}
-	smb.RegisterControllers(healthcheck.NewController(healthz, smb.HealthAggregationPolicy, cfg.FailuresTreshold))
+	smb.RegisterControllers(healthcheck.NewController(healthz, smb.HealthAggregationPolicy, smb.health.FailuresTreshold))
 
 	err := healthz.Start()
 	if err != nil {
