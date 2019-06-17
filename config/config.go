@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"github.com/Peripli/service-manager/api"
 	"github.com/Peripli/service-manager/pkg/env"
+	"github.com/Peripli/service-manager/pkg/health"
 	"github.com/Peripli/service-manager/pkg/log"
 	"github.com/Peripli/service-manager/pkg/server"
 	"github.com/Peripli/service-manager/pkg/ws"
@@ -32,6 +33,7 @@ type Settings struct {
 	Server    *server.Settings
 	Storage   *storage.Settings
 	Log       *log.Settings
+	Health    *health.Settings
 	API       *api.Settings
 	WebSocket *ws.Settings
 }
@@ -48,6 +50,7 @@ func DefaultSettings() *Settings {
 		Server:    server.DefaultSettings(),
 		Storage:   storage.DefaultSettings(),
 		Log:       log.DefaultSettings(),
+		Health:    health.DefaultSettings(),
 		API:       api.DefaultSettings(),
 		WebSocket: ws.DefaultSettings(),
 	}
